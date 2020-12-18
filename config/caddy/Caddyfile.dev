@@ -1,0 +1,20 @@
+# PHP-сервер с CRM-кой
+
+mysite.test:80 {
+    root * /var/www/html
+
+    log
+    encode gzip
+
+    php_fastcgi php:9000
+
+    file_server
+}
+
+# PHPMyAdmin
+db.test:80 {
+    log
+    encode gzip
+
+    reverse_proxy phpmyadmin:80
+}

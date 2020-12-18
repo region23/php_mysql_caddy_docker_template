@@ -1,0 +1,120 @@
+FROM php:7.4-fpm
+
+ENV TZ=Europe/Moscow
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+#COPY php.ini /usr/local/etc/php/
+
+# Arguments defined in docker-compose.yml
+# ARG user
+# ARG uid
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    mariadb-client \
+    libpng-dev \
+    libjpeg62-turbo-dev \
+    libfreetype6-dev \
+    locales \
+    zip \
+    jpegoptim optipng pngquant gifsicle \
+    vim \
+    unzip \
+    git \
+    curl \
+    libzip-dev \
+    zlib1g-dev \
+    libicu-dev \
+    g++ \
+    sudo \
+    libz-dev \
+    libmemcached-dev \
+    sendmail \
+    telnet
+
+RUN echo "sendmail_path=/usr/sbin/sendmail -t -i" >> /usr/local/etc/php/conf.d/sendmail.ini
+
+RUN sed -i '/#!\/bin\/sh/aservice sendmail restart' /usr/local/bin/docker-php-entrypoint
+
+RUN sed -i '/#!\/bin\/sh/aecho "$(hostname -i)\t$(hostname) $(hostname).localhost" >> /etc/hosts' /usr/local/bin/docker-php-entrypoint
+
+
+# Clear cache
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install extensions
+RUN docker-php-ext-install pdo_mysql zip exif pcntl bcmath mysqli 
+#RUN docker-php-ext-configure gd --with-freetype-dir=/usr --with-jpeg-dir=/usr --with-png-dir=/usr
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg
+RUN docker-php-ext-configure intl
+RUN docker-php-ext-install gd intl
+RUN docker-php-ext-install opcache
+
+RUN pecl install -o -f redis \
+    && pecl install xdebug \
+    && pecl install memcached \
+    &&  rm -rf /tmp/pear \
+    &&  docker-php-ext-enable redis xdebug memcached
+
+RUN pecl install mongodb \
+    &&  echo "extension=mongodb.so" > /usr/local/etc/php/conf.d/mongo.ini
+
+RUN apt-get update && apt-get install -y \
+    libmagickwand-dev --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/* \
+    && pecl install imagick \
+    && docker-php-ext-enable imagick
+
+# Get latest Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Create system user to run Composer and Artisan Commands
+# If user is not root than uncomment next line
+# RUN useradd -G www-data,root --uid $uid --home /home/$user $user
+# RUN mkdir -p /home/$user/.composer && \
+#     chown -R $user:$user /home/$user
+
+# ENV DOCKER_USER_ID=501
+# ENV DOCKER_USER_GID=20
+# ENV BOOT2DOCKER_ID=1000
+# ENV BOOT2DOCKER_GID=50
+# RUN usermod -u ${BOOT2DOCKER_ID} www-data && usermod -G staff www-data && useradd -r mysql && usermod -G staff mysql	
+# RUN groupmod -g $(($BOOT2DOCKER_GID + 10000)) $(getent group $BOOT2DOCKER_GID | cut -d: -f1)	
+# RUN groupmod -g ${BOOT2DOCKER_GID} staff
+
+RUN usermod -u 1000 www-data
+
+# Configure non-root user.
+# ARG PUID=1000
+# ENV PUID ${PUID}
+# ARG PGID=1000
+# ENV PGID ${PGID}
+
+# RUN groupmod -o -g ${PGID} www-data && \
+#     usermod -o -u ${PUID} -g www-data www-data
+
+# Use the default production configuration
+#RUN mv "$PHP_INI_DIR/php.ini-development" "$PHP_INI_DIR/php.ini"
+COPY custom.ini $PHP_INI_DIR/conf.d/
+COPY xdebug.ini $PHP_INI_DIR/conf.d/
+COPY opcache.ini $PHP_INI_DIR/conf.d/
+COPY zz-docker.conf /usr/local/etc/php-fpm.d/
+
+
+#Blackfire
+# RUN version=$(php -r "echo PHP_MAJOR_VERSION.PHP_MINOR_VERSION;") \
+#     && curl -A "Docker" -o /tmp/blackfire-probe.tar.gz -D - -L -s https://blackfire.io/api/v1/releases/probe/php/linux/amd64/$version \
+#     && mkdir -p /tmp/blackfire \
+#     && tar zxpf /tmp/blackfire-probe.tar.gz -C /tmp/blackfire \
+#     && mv /tmp/blackfire/blackfire-*.so $(php -r "echo ini_get ('extension_dir');")/blackfire.so \
+#     && printf "extension=blackfire.so\nblackfire.agent_socket=tcp://blackfire:8707\n" > $PHP_INI_DIR/conf.d/blackfire.ini \
+#     && rm -rf /tmp/blackfire /tmp/blackfire-probe.tar.gz
+
+# Please note that the Blackfire Probe is dependent on the session module.
+# If it isn't present in your install, you will need to enable it yourself.
+
+# Set working directory
+WORKDIR /var/www
+
+#USER $user

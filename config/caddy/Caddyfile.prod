@@ -1,0 +1,19 @@
+mysite.ru {
+    root * /var/www/html
+
+    log
+    encode gzip
+
+    php_fastcgi php:9000
+
+    file_server
+}
+
+
+# PHPMyAdmin
+db.mysite.ru {
+    log
+    encode gzip
+
+    reverse_proxy phpmyadmin:80
+}

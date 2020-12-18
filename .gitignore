@@ -1,0 +1,10 @@
+/.idea
+/.vscode
+/data
+.env
+.DS_Store
+/dumps
+/logs
+/config/certbot/etc/letsencrypt
+/config/certbot/var/lib/letsencrypt
+/config/certbot/cloudflare.ini
