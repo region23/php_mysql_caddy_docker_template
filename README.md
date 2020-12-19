@@ -29,3 +29,5 @@
 * Для остановки контейнеров выполни в корне проекта команду `docker-compose down`.
 
 
+### Статья по настройке XDebug 3
+https://region23.dev/all/xdebug-3-docker-vs-code/
